@@ -69,18 +69,32 @@ function startPage(page) {
 
     page.loading = false;
 }
+plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
+    var url = BASE_URL + url;
+    var resp = http.request(url).toString();
+    console.log(resp)
+    var dom = html.parse(resp).root;
+
+    page.type = "video";
+    page.loading = false;
+    page.source = 'hls:' + GetServer(dom);
+
+
+});
 
 plugin.addURI(PREFIX + ":channel:(.*):(.*)", function(page, url, title) {
-    //page.type = "directory";
+    page.type = "directory";
+    page.loading = true;
     page.metadata.title = title;
     var url = BASE_URL + url;
     var resp = http.request(url).toString();
     var dom = html.parse(resp).root;
 
-    page.type = "video";
-    page.loading = false;
-    page.source = GetServer(dom);
-    page.title = title;
+    page.appendItem('hls:' + GetServer(dom), "directory", {
+        title: new showtime.RichText('LIVE'),
+    });
+
+    GetWeekProgram(page, dom)
 
     page.loading = false;
 });
@@ -104,7 +118,11 @@ function GetServer(document) {
     }
 
     json = http.request(BASE_URL + "/original/getserver/GetServer", {
-        debug: true,
+        debug: service.debug,
+        noFail: true, // Don't throw on HTTP errors (400- status code)
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 3600,
         method: "POST",
         postdata: { archive: archive, date: date, id: id, stream: stream, currnet_stream: currnet_stream }
     });
@@ -112,3 +130,38 @@ function GetServer(document) {
     json = JSON.parse(json);
     return json.player;
 };
+
+function GetWeekProgram(page, document) {
+    page.type = "directory";
+    page.loading = true;
+
+    var channel = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-channel').value;;
+    var date = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-cdate').value;
+    var time = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-time').value;
+    var isdisable = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-isdisable').value;
+
+    var url = '/original/getweekprogram/GetWeekProgram/';
+    resp = http.request(BASE_URL + "/original/getweekprogram/GetWeekProgram/", {
+        debug: true,
+        method: "POST",
+        postdata: { channel: channel, date: date }
+    });
+    var dom = html.parse(resp).root;
+    var program_list = dom.getElementByTagName('a');
+    for (var i = 0; i < program_list.length; i++) {
+        var item = {
+            url: program_list[i].attributes.getNamedItem("href").value,
+            title: program_list[i].textContent.replace(/(:\d{2})/, '$1 '),
+        };
+
+        page.appendItem(PREFIX + ":play:" + item.url, "directory", {
+            title: new showtime.RichText(item.title),
+            icon: item.icon,
+            backdrop: item.backdrop
+        });
+
+
+    }
+    console.log(resp.toString())
+
+}
