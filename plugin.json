@@ -1,0 +1,15 @@
+{
+    "type": "ecmascript",
+    "apiversion": 1,
+    "id": "kuvalda.tv",
+    "file": "index.js",
+    "showtimeVersion": "5",
+    "version": "0.0.1",
+    "author": "Buksa",
+    "title": "Kuvalda.tv",
+    "icon": "img/logo.png",
+    "synopsis": "Russian Tv Online ТВ Онлайн с Kuvalda – твои неограниченные возможности!",
+    "description": "<p>Kuvalda.tv - plugin is the integration of the website <a href=\"http://kuvalda.tv\">kuvalda.tv</a> into Movian</p>",
+    "category": "TV",
+    "homepage": "https://github.com/buksa"
+}
