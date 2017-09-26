@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-// Version 0.1.2
+// Version 0.1.3
 //
 var http = require("showtime/http");
 var html = require("showtime/html");
@@ -44,11 +44,17 @@ function startPage(page) {
     page.metadata.title = "Kuvalda.tv : Список Каналов";
     page.loading = true;
 
-    var resp = http.request(BASE_URL).toString();
+    var resp = http.request(BASE_URL, {
+        debug: service.debug,
+        noFail: true, // Don't throw on HTTP errors (400- status code)
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 3600
+    });
     var channels = [];
-    var document = html.parse(resp).root;
+    var dom = html.parse(resp).root;
 
-    var channels = document.getElementByClassName("sidebar sidebar-block")[0];
+    var channels = dom.getElementByClassName("sidebar sidebar-block")[0];
 
     for (var i = 0; i < channels.children.length; i++) {
         var item = {
@@ -70,40 +76,50 @@ function startPage(page) {
     page.loading = false;
 }
 plugin.addURI(PREFIX + ":play:(.*)", function(page, url) {
-    var url = BASE_URL + url;
-    var resp = http.request(url).toString();
-    console.log(resp)
+    var resp = http.request(BASE_URL + url, {
+        debug: service.debug,
+        noFail: true, // Don't throw on HTTP errors (400- status code)
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 3600
+    });
     var dom = html.parse(resp).root;
 
-    page.type = "video";
+    data = GetServer(page, dom);
+    if (data.error == "0") {
+        page.type = "video";
+        page.source = "hls:" + data.player;
+    } else page.error(data.text);
     page.loading = false;
-    page.source = 'hls:' + GetServer(dom);
-
-
 });
 
 plugin.addURI(PREFIX + ":channel:(.*):(.*)", function(page, url, title) {
     page.type = "directory";
     page.loading = true;
     page.metadata.title = title;
-    var url = BASE_URL + url;
-    var resp = http.request(url).toString();
+
+    var resp = http.request(BASE_URL + url, {
+        debug: service.debug,
+        noFail: true, // Don't throw on HTTP errors (400- status code)
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 3600
+    });
     var dom = html.parse(resp).root;
 
-    page.appendItem('hls:' + GetServer(dom), "directory", {
-        title: new showtime.RichText('LIVE'),
+    page.appendItem(PREFIX + ":play:" + url, "directory", {
+        title: new showtime.RichText("LIVE")
     });
 
-    GetWeekProgram(page, dom)
+    GetWeekProgram(page, dom);
 
     page.loading = false;
 });
 
 plugin.addURI(PREFIX + ":start", startPage);
 
-function GetServer(document) {
-
-    var player = document.getElementById("player");
+function GetServer(page, dom) {
+    var player = dom.getElementById("player");
     var archive = player.attributes.getNamedItem("data-archive").value;
     var date = player.attributes.getNamedItem("data-date").value;
     var id = player.attributes.getNamedItem("data-id").value;
@@ -111,10 +127,10 @@ function GetServer(document) {
     var currnet_stream = false;
 
     if (
-        document.getElementById("player-box").attributes.getNamedItem("data-src") &&
-        document.getElementById("player-box").attributes.getNamedItem("data-src") != ""
+        dom.getElementById("player-box").attributes.getNamedItem("data-src") &&
+        dom.getElementById("player-box").attributes.getNamedItem("data-src") != ""
     ) {
-        currnet_stream = document.getElementById("player-box").attributes.getNamedItem("data-src");
+        currnet_stream = dom.getElementById("player-box").attributes.getNamedItem("data-src");
     }
 
     json = http.request(BASE_URL + "/original/getserver/GetServer", {
@@ -128,41 +144,41 @@ function GetServer(document) {
     });
 
     json = JSON.parse(json);
-    return json.player;
-};
+    return json;
+}
 
-function GetWeekProgram(page, document) {
+function GetWeekProgram(page, dom) {
     page.type = "directory";
     page.loading = true;
 
-    var channel = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-channel').value;;
-    var date = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-cdate').value;
-    var time = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-time').value;
-    var isdisable = document.getElementByClassName('active-program')[0].attributes.getNamedItem('data-isdisable').value;
+    var channel = dom.getElementByClassName("active-program")[0].attributes.getNamedItem("data-channel").value;
+    var date = dom.getElementByClassName("active-program")[0].attributes.getNamedItem("data-cdate").value;
+    var time = dom.getElementByClassName("active-program")[0].attributes.getNamedItem("data-time").value;
+    var isdisable = dom.getElementByClassName("active-program")[0].attributes.getNamedItem("data-isdisable").value;
 
-    var url = '/original/getweekprogram/GetWeekProgram/';
+    var url = "/original/getweekprogram/GetWeekProgram/";
     resp = http.request(BASE_URL + "/original/getweekprogram/GetWeekProgram/", {
-        debug: true,
+        debug: service.debug,
+        noFail: true, // Don't throw on HTTP errors (400- status code)
+        compression: true, // Will send 'Accept-Encoding: gzip' in request
+        caching: true, // Enables Movian's built-in HTTP cache
+        cacheTime: 3600,
         method: "POST",
         postdata: { channel: channel, date: date }
     });
     var dom = html.parse(resp).root;
-    var program_list = dom.getElementByTagName('a');
+    var program_list = dom.getElementByTagName("a");
+
     for (var i = 0; i < program_list.length; i++) {
         var item = {
             url: program_list[i].attributes.getNamedItem("href").value,
-            title: program_list[i].textContent.replace(/(:\d{2})/, '$1 '),
+            title: program_list[i].textContent.replace(/(:\d{2})/, "$1 ")
         };
-        console.log(item.url);
-        if (item.url !== '#')
+        if (item.url !== "#")
             page.appendItem(PREFIX + ":play:" + item.url, "directory", {
                 title: new showtime.RichText(item.title),
                 icon: item.icon,
                 backdrop: item.backdrop
             });
-
-
     }
-    console.log(resp.toString())
-
 }
