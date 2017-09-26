@@ -16,7 +16,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-// Version 0.0.1
+// Version 0.1.2
 //
 var http = require("showtime/http");
 var html = require("showtime/html");
@@ -153,12 +153,13 @@ function GetWeekProgram(page, document) {
             url: program_list[i].attributes.getNamedItem("href").value,
             title: program_list[i].textContent.replace(/(:\d{2})/, '$1 '),
         };
-
-        page.appendItem(PREFIX + ":play:" + item.url, "directory", {
-            title: new showtime.RichText(item.title),
-            icon: item.icon,
-            backdrop: item.backdrop
-        });
+        console.log(item.url);
+        if (item.url !== '#')
+            page.appendItem(PREFIX + ":play:" + item.url, "directory", {
+                title: new showtime.RichText(item.title),
+                icon: item.icon,
+                backdrop: item.backdrop
+            });
 
 
     }
